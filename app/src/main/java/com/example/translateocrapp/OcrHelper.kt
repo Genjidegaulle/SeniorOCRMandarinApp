@@ -18,6 +18,7 @@ class OcrHelper {
     private val textRecognizerOptions: TextRecognizerOptionsInterface
 
     init {
+        // Use Latin text recognizer for English text
         textRecognizerOptions = TextRecognizerOptions.Builder().build()
         textRecognizer = TextRecognition.getClient(textRecognizerOptions)
     }

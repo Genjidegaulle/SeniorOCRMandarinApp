@@ -7,6 +7,7 @@ import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 
 import android.content.Context
+import android.util.Log
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -23,12 +24,13 @@ import com.google.mlkit.nl.translate.TranslateRemoteModel
 
 class TextTranslator(private val context: Context) {
 
-    // Variables
-    private lateinit var germanOptions : TranslatorOptions
-    private lateinit var germanTranslator : com.google.mlkit.nl.translate.Translator
+    companion object {
+        private const val TAG = "TextTranslator"
+    }
 
-    private lateinit var swedishOptions : TranslatorOptions
-    private lateinit var swedishTranslator : com.google.mlkit.nl.translate.Translator
+    // Variables
+    private lateinit var chineseOptions : TranslatorOptions
+    private lateinit var chineseTranslator : com.google.mlkit.nl.translate.Translator
 
     private val remoteModelManager = RemoteModelManager.getInstance()
 
@@ -37,53 +39,60 @@ class TextTranslator(private val context: Context) {
 
 
     init {
+        Log.d(TAG, "Initializing TextTranslator")
 
-        // Initialize the german translator
-        germanOptions = TranslatorOptions.Builder()
-            .setSourceLanguage(TranslateLanguage.GERMAN)
-            .setTargetLanguage(TranslateLanguage.ENGLISH)
+        // Initialize the translator for English to Chinese
+        chineseOptions = TranslatorOptions.Builder()
+            .setSourceLanguage(TranslateLanguage.ENGLISH)
+            .setTargetLanguage(TranslateLanguage.CHINESE)
             .build()
 
-        germanTranslator = com.google.mlkit.nl.translate.Translation.getClient(germanOptions)
-
-        // Initialize the swedish translator
-        swedishOptions = TranslatorOptions.Builder()
-            .setSourceLanguage(TranslateLanguage.SWEDISH)
-            .setTargetLanguage(TranslateLanguage.ENGLISH)
-            .build()
-
-        swedishTranslator = com.google.mlkit.nl.translate.Translation.getClient(swedishOptions)
-
+        chineseTranslator = com.google.mlkit.nl.translate.Translation.getClient(chineseOptions)
+        Log.d(TAG, "TextTranslator initialized successfully")
 
     }
 
 
     // Create a function to translate text
-    // sourceLanguageCode is the language code can have two values: "sv" or "de"
-    private fun translateTextToEnglish(text: String, sourceLanguageCode: String): String {
+    // sourceLanguageCode is the language code - expecting "en" for English
+    private fun translateTextToChinese(text: String, sourceLanguageCode: String): String {
+        Log.d(TAG, "translateTextToChinese called with sourceLanguageCode: $sourceLanguageCode, text length: ${text.length}")
 
-        // Check if the source language code is "sv" or "de", if not return the text
-        if (sourceLanguageCode != "sv" && sourceLanguageCode != "de") {
+        // Check if the source language code is "en" (English), if not return the text
+        if (sourceLanguageCode != "en") {
+            Log.d(TAG, "Source language is not English, returning original text")
             return text
         }
 
-        // Check if the translation model is downloaded and available
-        if (!isModelDownloaded(sourceLanguageCode)) {
-            // Model not downloaded, download it and wait for completion
-            downloadModel(sourceLanguageCode)
-        }
+        try {
+            // Check if the translation model is downloaded and available
+            Log.d(TAG, "Checking if model is downloaded")
+            if (!isModelDownloaded("zh")) {
+                Log.d(TAG, "Model not downloaded, downloading...")
+                // Model not downloaded, download it and wait for completion
+                downloadModel("zh")
+            } else {
+                Log.d(TAG, "Model already downloaded")
+            }
 
-        // If the source language code is "sv" then translate the text to english using the swedish translator
-        var task: Task<String> = if (sourceLanguageCode == "sv") {
-            swedishTranslator.translate(text)
+            // Translate the text to Simplified Chinese using the translator
+            Log.d(TAG, "Starting translation to Simplified Chinese")
+            val task: Task<String> = chineseTranslator.translate(text)
+            val simplifiedChinese = Tasks.await(task)
+            Log.d(TAG, "Translation to Simplified Chinese completed: $simplifiedChinese")
 
-        }
-        // If the source language code is "de" then translate the text to english using the german translator
-        else {
-            germanTranslator.translate(text)
-        }
+            // Convert Simplified Chinese to Traditional Chinese
+            Log.d(TAG, "Converting to Traditional Chinese")
+            val traditionalChinese = ChineseConverter.toTraditional(simplifiedChinese)
+            Log.d(TAG, "Conversion to Traditional Chinese completed: $traditionalChinese")
 
-        return Tasks.await(task)
+            return traditionalChinese
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during translation: ${e.message}", e)
+            e.printStackTrace()
+            return text
+        }
 
     }
 
@@ -91,15 +100,23 @@ class TextTranslator(private val context: Context) {
 
     // Check if the translation model for the given language code is downloaded and available
     private fun isModelDownloaded(languageCode: String): Boolean {
-
-        val model = TranslateRemoteModel.Builder(languageCode).build()
-        val task = remoteModelManager.isModelDownloaded(model)
-        return Tasks.await(task)
+        Log.d(TAG, "Checking if model for language $languageCode is downloaded")
+        try {
+            val model = TranslateRemoteModel.Builder(languageCode).build()
+            val task = remoteModelManager.isModelDownloaded(model)
+            val isDownloaded = Tasks.await(task)
+            Log.d(TAG, "Model for $languageCode is downloaded: $isDownloaded")
+            return isDownloaded
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking if model is downloaded: ${e.message}", e)
+            return false
+        }
 
     }
 
     // Download the translation model for the given language code
     private fun downloadModel(languageCode: String) {
+        Log.d(TAG, "Starting download for language: $languageCode")
 
         // Create a progress dialog
         val progressBar = ProgressBar(context).apply {
@@ -124,6 +141,7 @@ class TextTranslator(private val context: Context) {
 
         try {
             Tasks.await(downloadTask)
+            Log.d(TAG, "Model download completed successfully")
             Handler(Looper.getMainLooper()).post {
                 progressDialog?.dismiss()
                 progressDialog = null
@@ -133,6 +151,7 @@ class TextTranslator(private val context: Context) {
             showDownloadToast("Translation Model Downloaded Successfully")
 
         } catch (e: Exception) {
+            Log.e(TAG, "Model download failed: ${e.message}", e)
 
             // Dismiss the progress dialog on download failure
             Handler(Looper.getMainLooper()).post {
@@ -141,7 +160,7 @@ class TextTranslator(private val context: Context) {
             }
 
             // Show a toast indicating download failure
-            showDownloadToast("Translation Model Download Failed")
+            showDownloadToast("Translation Model Download Failed: ${e.message}")
 
         }
     }
@@ -155,18 +174,30 @@ class TextTranslator(private val context: Context) {
 
     // Create a function to translate ocr result
     fun translateOcrResult(ocrResult: Map<Rect, Text.TextBlock>, languageCode: String ): Map<Rect, String> {
+        Log.d(TAG, "translateOcrResult called with ${ocrResult.size} text blocks, languageCode: $languageCode")
 
         // Create a map to store the translated result
         val translatedResult = mutableMapOf<Rect, String>()
 
-        // Iterate through the ocr result
-        for ((rect, textBlock) in ocrResult) {
+        try {
+            // Iterate through the ocr result
+            var blockIndex = 0
+            for ((rect, textBlock) in ocrResult) {
+                blockIndex++
+                Log.d(TAG, "Translating block $blockIndex/${ocrResult.size}: '${textBlock.text}'")
 
-            // Translate the textBlock text to english
-            val translatedText = translateTextToEnglish(textBlock.text, languageCode)
+                // Translate the textBlock text to Chinese
+                val translatedText = translateTextToChinese(textBlock.text, languageCode)
+                Log.d(TAG, "Block $blockIndex translated: '$translatedText'")
 
-            // Add the translated text to the map
-            translatedResult[rect] = translatedText
+                // Add the translated text to the map
+                translatedResult[rect] = translatedText
+            }
+
+            Log.d(TAG, "All blocks translated successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during OCR result translation: ${e.message}", e)
+            e.printStackTrace()
         }
 
         return translatedResult

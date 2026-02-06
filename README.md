@@ -1,7 +1,7 @@
 # TranslateOCRApp
 
-TranslateOCRApp is an Android application that allows users to click pictures of Swedish and German text and translate
-them into english. The app leverages [Google ML-Kit](https://developers.google.com/ml-kit) for ML functionalities like OCR, Language identification and Translation and [CameraX](https://developer.android.com/training/camerax) for camera functionality.
+TranslateOCRApp is an Android application that allows users to click pictures of English text and translate
+them into Mandarin (Traditional Chinese). The app leverages [Google ML-Kit](https://developers.google.com/ml-kit) for ML functionalities like OCR, Language identification and Translation and [CameraX](https://developer.android.com/training/camerax) for camera functionality.
 
 This is a companion repo for by blog: [Android OCR Translation App using Kotlin and Google ML-Kit](https://jayeshmahapatra.github.io/2023/07/27/translation-app.html)
 
@@ -31,9 +31,9 @@ The TranslateOCRApp works in the following steps:
 
 2. **Optical Character Recognition (OCR):** After the image is captured, the `PreviewActivity` is launched, where the raw image is displayed. The app then utilizes Google ML Kit's OCR capabilities provided by the `OcrHelper` class to extract all the text present in the image.
 
-3. **Language Identification:** Once the text is extracted using OCR, the `LanguageRecognizer` class is employed to identify the language of the extracted text. The app determines if the text is in Swedish, German, or an undetermined language.
+3. **Language Identification:** Once the text is extracted using OCR, the `LanguageRecognizer` class is employed to identify the language of the extracted text. The app determines if the text is in English or an undetermined language.
 
-4. **Translation:** Based on the identified language, the app decides which language translation model to use. The `TextTranslator` class handles the downloading and loading of the appropriate translation model (German if undetermined). The text is then translated into English. The class also manages translation models, such as downloading and storing them locally as needed.
+4. **Translation:** Based on the identified language, the app uses the English to Chinese translation model if English is detected. The `TextTranslator` class handles the downloading and loading of the English to Chinese translation model. The text is first translated to Simplified Chinese by ML Kit, then converted to Traditional Chinese using the `ChineseConverter` class with the opencc4j library. The class also manages translation models, such as downloading and storing them locally as needed.
 
 5. **Image Transformation:** The original image, along with the overlay of the translated text, is displayed to the user in the `PreviewActivity`. The `BitmapAnnotator` class takes care of overlaying the translated text on top of the original image. This is done by blurring the original text and replacing them with their translations.
 
